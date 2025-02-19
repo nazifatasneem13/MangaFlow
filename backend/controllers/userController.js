@@ -120,10 +120,12 @@ export const generateReport = async (req, res) => {
   const { period = "month", genreFilter } = req.query; // period: "month" or "year"
 
   try {
-    const user = await User.findById(userId).populate(
-      "lists.completed",
-      "title genre"
-    ); // Populate manga fields (title, genre)
+    const user = await User.findById(userId).populate({
+      path: "lists.completed.manga",
+      select: "title genre",
+    });
+
+    // Populate manga fields (title, genre)
 
     if (!user) {
       console.error("User not found", userId);
@@ -148,6 +150,7 @@ export const generateReport = async (req, res) => {
         .status(400)
         .json({ message: "Invalid period. Use 'month' or 'year'." });
     }
+    console.log("Completed List Data:", user.lists.completed);
 
     // Filter completed list by the dateRead (which is stored in the User schema)
     const filteredCompleted = user.lists.completed.filter((manga) => {
@@ -157,15 +160,16 @@ export const generateReport = async (req, res) => {
 
     // If genreFilter is provided, filter manga by genre
     const filteredByGenre = genreFilter
-      ? filteredCompleted.filter((manga) => manga.genre === genreFilter)
+      ? filteredCompleted.filter((entry) => entry.manga.genre === genreFilter) // ✅ Correct
       : filteredCompleted;
 
     // Count total manga read
     const totalMangaRead = filteredByGenre.length;
 
     // Count manga by genre
-    const genreCounts = filteredByGenre.reduce((acc, manga) => {
-      acc[manga.genre] = acc[manga.genre] ? acc[manga.genre] + 1 : 1;
+    const genreCounts = filteredByGenre.reduce((acc, entry) => {
+      const genre = entry.manga.genre; // ✅ Correct access
+      acc[genre] = acc[genre] ? acc[genre] + 1 : 1;
       return acc;
     }, {});
 

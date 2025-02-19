@@ -7,6 +7,7 @@ import authRoutes from "./routes/authRoutes.js";
 import mangaRoutes from "./routes/mangaRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import reportRoutes from "./routes/reportRoutes.js";
 import "./config/passport.js";
 import { verifySafeUrl } from "./utils/verify-url.js";
 import { doesResolveToLocalhost } from "./utils/dns-resolve.js";
@@ -52,6 +53,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/mangas", mangaRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/reports", reportRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

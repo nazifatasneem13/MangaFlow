@@ -6,44 +6,42 @@ export const createReview = async (req, res) => {
   const { mangaId, rating, comment, parentReview } = req.body;
 
   try {
-    // Ensure the user is authenticated and attached to req.user
     if (!req.user || !req.user.id) {
       return res.status(401).json({ msg: "User not authenticated" });
+    }
+
+    // Ensure a comment is always provided
+    if (!comment) {
+      return res.status(400).json({ msg: "Comment is required." });
     }
 
     // Check if the manga exists
     const manga = await Manga.findById(mangaId);
     if (!manga) return res.status(404).json({ msg: "Manga not found" });
 
-    // Check if the user has already reviewed this manga
-    const existingReview = await Review.findOne({
-      manga: mangaId,
-      user: req.user.id,
-      parentReview: null, // Ensure the user hasn't already reviewed the manga without a reply
-    });
-    if (existingReview) {
-      return res.status(400).json({
-        msg: "You have already reviewed this manga. Please update your review.",
-      });
+    // If it's a reply, ensure it doesn't have a rating
+    if (parentReview) {
+      if (rating) {
+        return res.status(400).json({ msg: "Replies cannot have a rating." });
+      }
     }
 
-    // Create the review if it doesn't exist
+    // Create the review
     const review = new Review({
-      user: req.user.id, // Use the user ID from the authenticated user
+      user: req.user.id,
       manga: mangaId,
-      rating,
+      rating: parentReview ? null : rating, // Only allow rating in parent review
       comment,
-      parentReview, // Set the parentReview if this is a reply
+      parentReview,
     });
 
-    // Save the review
     await review.save();
 
-    // Add the review to the manga's reviews array (optional)
+    // Add the review to the manga's reviews array
     manga.reviews.push(review._id);
     await manga.save();
 
-    // If it's a reply, also add the review ID to the parent review's replies
+    // If it's a reply, add it to the parent review's replies
     if (parentReview) {
       const parent = await Review.findById(parentReview);
       if (parent) {
@@ -52,10 +50,9 @@ export const createReview = async (req, res) => {
       }
     }
 
-    // Return the review
     res.status(201).json(review);
   } catch (err) {
-    console.error(err); // Log the error for debugging
+    console.error(err);
     res.status(500).json({ msg: "Server error", error: err.message });
   }
 };
@@ -93,25 +90,22 @@ export const updateReview = async (req, res) => {
   const { rating, comment } = req.body;
 
   try {
-    // Find the review
     const review = await Review.findById(reviewId);
+    if (!review) return res.status(404).json({ message: "Review not found" });
 
-    if (!review) {
-      return res.status(404).json({ message: "Review not found" });
-    }
-
-    // Check if the logged-in user is the one who created the review or if the user is an admin
     if (review.user.toString() !== req.user.id && req.user.role !== "admin") {
       return res.status(403).json({ message: "Permission denied" });
     }
 
-    // Update the review
-    review.rating = rating || review.rating;
-    review.comment = comment || review.comment;
+    // Prevent replies from getting a rating
+    if (review.parentReview && rating !== undefined) {
+      return res.status(400).json({ msg: "Replies cannot have a rating." });
+    }
 
-    // Save the updated review
+    if (rating !== undefined) review.rating = rating;
+    if (comment !== undefined) review.comment = comment;
+
     await review.save();
-
     res.json({ message: "Review updated successfully", review });
   } catch (err) {
     console.error(err);
