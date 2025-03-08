@@ -6,8 +6,11 @@ import {
   deleteUser,
   googleAuth,
   googleCallback,
+  githubAuth,
+  githubCallback,
 } from "../controllers/authController.js";
 import { protect } from "../middleware/authMiddleware.js";
+import passport from "passport";
 
 const router = express.Router();
 
@@ -26,5 +29,20 @@ router.get("/google", googleAuth);
 
 // Callback route after Google OAuth authentication
 router.get("/google/callback", googleCallback);
+
+// Route to initiate GitHub OAuth
+router.get(
+  "/github",
+  passport.authenticate("github", { scope: ["user:email"], session: false })
+);
+
+router.get(
+  "/github/callback",
+  passport.authenticate("github", {
+    failureRedirect: "/login",
+    session: false,
+  }),
+  githubCallback
+);
 
 export default router;

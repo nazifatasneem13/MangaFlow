@@ -1,5 +1,6 @@
 import Manga from "../models/mangaModel.js";
 import cloudinary from "cloudinary";
+import fs from "fs"; // To delete temp files after upload
 
 // Cloudinary configuration
 cloudinary.config({
@@ -22,34 +23,36 @@ export const getMangaById = async (req, res) => {
 // Add a new manga (only for admins)
 export const addManga = async (req, res) => {
   try {
-    const { title, genre, description, chapters } = req.body;
+    const { title, genre, description, chapters, imageUrl, videoUrl, pdfUrl } =
+      req.body;
 
-    // Handle image upload
-    if (!req.file) {
-      return res.status(400).json({ msg: "Image is required" });
+    // Check if necessary fields are provided
+    if (!title || !genre || !description || !chapters) {
+      return res.status(400).json({
+        msg: "All fields (title, genre, description, chapters) are required",
+      });
     }
 
-    // Upload the image to Cloudinary
-    const result = await cloudinary.uploader.upload(req.file.path, {
-      upload_preset: "MangaFlow",
-      folder: "MangaFlow",
-    });
+    // Validate if at least one file (image, video, or PDF) is uploaded
+    if (!imageUrl && !videoUrl && !pdfUrl) {
+      return res.status(400).json({ msg: "Image, video, or PDF is required" });
+    }
 
-    // Get the URL of the uploaded image
-    const imageUrl = result.secure_url;
-
+    // Create a new Manga object and save it to the database
     const newManga = new Manga({
       title,
       genre,
       description,
       image: imageUrl,
+      video: videoUrl,
+      pdf: pdfUrl,
       chapters,
     });
 
     await newManga.save();
     res.status(201).json({ message: "Manga added successfully", newManga });
   } catch (err) {
-    console.error(err);
+    console.error("Error adding manga:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -77,22 +80,98 @@ export const updateManga = async (req, res) => {
 
     // Use the current image if no new image is uploaded
     let imageUrl = req.body.image; // Fallback to the current image URL if no new image is uploaded
+    let videoUrl = req.body.video; // Fallback to the current video URL if no new video is uploaded
+    let pdfUrl = req.body.pdf; // Fallback to the current PDF URL if no new PDF is uploaded
 
-    if (req.file) {
-      // Upload the new image to Cloudinary
+    // Upload new image if provided
+    if (req.file && req.file.fieldname === "image") {
       const result = await cloudinary.uploader.upload(req.file.path, {
         upload_preset: "MangaFlow",
         folder: "MangaFlow",
       });
-
-      // Get the URL of the uploaded image
       imageUrl = result.secure_url;
+    }
+
+    // Upload new video if provided
+    if (req.file && req.file.fieldname === "video") {
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        upload_preset: "MangaFlow",
+        folder: "Videos",
+        resource_type: "video", // Specify resource_type as video
+      });
+      videoUrl = result.secure_url;
+    }
+
+    // Upload new PDF if provided
+    if (req.file && req.file.fieldname === "pdf") {
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        upload_preset: "MangaFlow",
+        folder: "PDFs",
+        resource_type: "raw", // Specify resource_type as raw for PDFs
+      });
+      pdfUrl = result.secure_url;
     }
 
     // Update the manga document with the new data
     const updatedManga = await Manga.findByIdAndUpdate(
       req.params.id,
-      { title, genre, description, image: imageUrl, chapters },
+      {
+        title,
+        genre,
+        description,
+        image: imageUrl,
+        video: videoUrl,
+        pdf: pdfUrl,
+        chapters,
+      },
+      { new: true }
+    );
+
+    if (!updatedManga) {
+      return res.status(404).json({ message: "Manga not found" });
+    }
+
+    res.json({ message: "Manga updated successfully", updatedManga });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Patch (partial update) a manga (only for admins)
+export const patchManga = async (req, res) => {
+  try {
+    const updates = req.body; // Only update provided fields
+
+    if (req.file) {
+      // Upload the new image, video, or PDF to Cloudinary if provided
+      if (req.file.fieldname === "image") {
+        const result = await cloudinary.uploader.upload(req.file.path, {
+          upload_preset: "MangaFlow",
+          folder: "MangaFlow",
+        });
+        updates.image = result.secure_url;
+      } else if (req.file.fieldname === "video") {
+        const result = await cloudinary.uploader.upload(req.file.path, {
+          upload_preset: "MangaFlow",
+          folder: "Videos",
+          resource_type: "video",
+        });
+        updates.video = result.secure_url;
+      } else if (req.file.fieldname === "pdf") {
+        const result = await cloudinary.uploader.upload(req.file.path, {
+          upload_preset: "MangaFlow",
+          folder: "PDFs",
+          resource_type: "raw",
+        });
+        updates.pdf = result.secure_url;
+      }
+    }
+
+    // Find and update the manga with only the provided fields
+    const updatedManga = await Manga.findByIdAndUpdate(
+      req.params.id,
+      { $set: updates },
       { new: true }
     );
 

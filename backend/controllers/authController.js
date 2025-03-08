@@ -121,3 +121,21 @@ export const googleCallback = [
     }
   },
 ];
+
+// Initiate GitHub authentication
+export const githubAuth = passport.authenticate("github", {
+  scope: ["user:email"],
+});
+
+// Handle GitHub OAuth callback and issue JWT
+export const githubCallback = async (req, res) => {
+  try {
+    const token = jwt.sign({ userId: req.user.id }, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRATION || "10h",
+    });
+    res.json({ token });
+  } catch (error) {
+    console.error("Error generating token:", error);
+    res.status(500).json({ msg: "Server error" });
+  }
+};

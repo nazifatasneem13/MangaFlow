@@ -7,6 +7,7 @@ const UserSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true },
     password: { type: String },
     googleId: { type: String }, // Added to store Google OAuth ID
+    githubId: { type: String },
     role: { type: String, default: "user", enum: ["user", "admin"] },
     lists: {
       reading: [
