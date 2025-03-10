@@ -1,21 +1,24 @@
 import passport from "passport";
-import { Strategy as GoogleStrategy } from "passport-google-oauth20"; // Correct import
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import dotenv from "dotenv";
 import User from "../models/userModel.js";
 import { Strategy as GitHubStrategy } from "passport-github2";
 
 dotenv.config();
 
+// Google OAuth Strategy Setup
 passport.use(
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       callbackURL: process.env.GOOGLE_CALLBACK_URL,
-      scope: ["profile", "email"],
+      scope: ["profile", "email"], // Define the scope of the requested data
+      session: false, // We don't need session handling for stateless authentication
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
+        // Check if user exists in the database
         let user = await User.findOne({ googleId: profile.id });
 
         if (!user) {
@@ -28,9 +31,10 @@ passport.use(
           await user.save();
         }
 
-        done(null, user); // This will pass the user object to the next step
+        // Return the user object
+        done(null, user);
       } catch (err) {
-        console.error(err);
+        console.error("Google OAuth Error:", err);
         done(err, null);
       }
     }
@@ -44,6 +48,7 @@ passport.use(
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
       callbackURL: process.env.GITHUB_CALLBACK_URL,
       scope: ["user:email"],
+      session: false, // Disable session handling for GitHub OAuth
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
@@ -59,7 +64,7 @@ passport.use(
           await user.save();
         }
 
-        done(null, user);
+        done(null, user); // Pass the user object without relying on session
       } catch (err) {
         console.error("GitHub OAuth error:", err);
         done(err, null);
@@ -68,11 +73,4 @@ passport.use(
   )
 );
 
-passport.serializeUser((user, done) => {
-  done(null, user.id); // Store user id in session
-});
-
-passport.deserializeUser(async (id, done) => {
-  const user = await User.findById(id);
-  done(null, user); // Retrieve user based on id
-});
+// Session handling is removed, no need for serializeUser or deserializeUser

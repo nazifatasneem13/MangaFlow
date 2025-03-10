@@ -105,22 +105,19 @@ export const googleAuth = passport.authenticate("google", {
   scope: ["profile", "email"],
 });
 
-// Callback from Google after authentication
-export const googleCallback = [
-  passport.authenticate("google", { failureRedirect: "/login" }),
-  async (req, res) => {
-    try {
-      // Issue JWT after successful authentication
-      const token = jwt.sign({ userId: req.user.id }, process.env.JWT_SECRET, {
-        expiresIn: process.env.JWT_EXPIRATION,
-      });
-      res.json({ token }); // Return JWT token
-    } catch (error) {
-      console.error("Error generating token:", error);
-      res.status(500).json({ msg: "Server error" });
-    }
-  },
-];
+// Google OAuth callback function
+export const googleCallback = async (req, res) => {
+  try {
+    // Generate a JWT token for the authenticated user
+    const token = jwt.sign({ userId: req.user.id }, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRATION || "10h",
+    });
+    res.json({ token }); // Send the token back to the client
+  } catch (error) {
+    console.error("Error generating token:", error);
+    res.status(500).json({ msg: "Server error" });
+  }
+};
 
 // Initiate GitHub authentication
 export const githubAuth = passport.authenticate("github", {

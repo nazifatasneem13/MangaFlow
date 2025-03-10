@@ -25,10 +25,23 @@ router.put("/profile", protect, updateUserProfile);
 router.delete("/:id", protect, deleteUser);
 
 // Route to initiate Google OAuth authentication
-router.get("/google", googleAuth);
+router.get(
+  "/google",
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+    session: false,
+  })
+);
 
 // Callback route after Google OAuth authentication
-router.get("/google/callback", googleCallback);
+router.get(
+  "/google/callback",
+  passport.authenticate("google", {
+    failureRedirect: "/login", // Redirect if authentication fails
+    session: false,
+  }),
+  googleCallback // Handle successful authentication and JWT generation
+);
 
 // Route to initiate GitHub OAuth
 router.get(

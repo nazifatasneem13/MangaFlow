@@ -139,8 +139,8 @@ export const deleteReview = async (req, res) => {
       }
     }
 
-    // Delete the review
-    await review.remove();
+    // Delete the review using findByIdAndDelete (instead of .remove)
+    await Review.findByIdAndDelete(reviewId);
 
     res.json({ message: "Review deleted successfully" });
   } catch (err) {
